@@ -22,33 +22,11 @@ replace_once(
 ''',
     '''\tHandleFunc("api", apiHandler)
 
-\t// Security hardening: configuration mutation, process control and logs are
-\t// administrative operations. Never expose them anonymously. If API
-\t// credentials are not configured, these endpoints are not registered.
-\tif cfg.Mod.Username != "" && cfg.Mod.Password != "" {
-\t\tHandleFunc("api/config", adminAuth(cfg.Mod.Username, cfg.Mod.Password, configHandler))
-\t\tHandleFunc("api/exit", adminAuth(cfg.Mod.Username, cfg.Mod.Password, exitHandler))
-\t\tHandleFunc("api/restart", adminAuth(cfg.Mod.Username, cfg.Mod.Password, restartHandler))
-\t\tHandleFunc("api/log", adminAuth(cfg.Mod.Username, cfg.Mod.Password, logHandler))
-\t} else {
-\t\tlog.Warn().Msg("[api] admin endpoints disabled: set api.username and api.password to enable them")
-\t}
-''',
-)
-
-replace_once(
-    api,
-    '''func middlewareAuth(username, password string, localAuth bool, next http.Handler) http.Handler {
-''',
-    '''// adminAuth always requires HTTP Basic authentication, including loopback
-// callers. This prevents local_auth=false from bypassing protection for
-// sensitive administrative endpoints.
-func adminAuth(username, password string, next http.HandlerFunc) http.HandlerFunc {
-\thandler := middlewareAuth(username, password, true, next)
-\treturn handler.ServeHTTP
-}
-
-func middlewareAuth(username, password string, localAuth bool, next http.Handler) http.Handler {
+\t// Security hardening: do not expose raw configuration, process control,
+\t// or in-memory logs over HTTP. Xiaomi onboarding uses /api/xiaomi and
+\t// normal stream management uses their own validated endpoints, so these
+\t// high-risk administrative endpoints are intentionally disabled.
+\tlog.Info().Msg("[api] security hardening enabled: config/restart/exit/log HTTP endpoints disabled")
 ''',
 )
 
