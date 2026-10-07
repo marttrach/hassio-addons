@@ -1,5 +1,5 @@
 name: go2rtc Secure
-description: Security-hardened go2rtc 1.9.14 with Xiaomi support, patched admin API and restricted exec defaults
+description: Security-hardened go2rtc 1.9.14 with Xiaomi support, dangerous admin HTTP endpoints disabled, and restricted exec defaults
 url: https://github.com/marttrach/hassio-addons
 build_from:
   amd64: ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.22
@@ -9,7 +9,7 @@ build_from:
 arch: [amd64, aarch64, i386, armv7]
 
 version: 1.9.14-sec.1
-slug: go2rtc_secure
+slug: go2rtc
 init: false
 startup: system
 host_network: true
