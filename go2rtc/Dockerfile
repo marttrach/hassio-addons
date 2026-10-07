@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 ARG GO2RTC_REF=b5948cfb25404cc5cb37b166ecaa2dca20b11d4b
 ARG GO_VERSION=1.25
-ARG BUILD_FROM
+ARG BUILD_FROM=ghcr.io/home-assistant/base-python:3.13-alpine3.22
 
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
 ARG TARGETOS
