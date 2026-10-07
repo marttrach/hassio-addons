@@ -1,0 +1,62 @@
+name: go2rtc security checks
+
+on:
+  push:
+    branches:
+      - master
+      - security/go2rtc-hardening
+    paths:
+      - "go2rtc/**"
+      - ".github/workflows/go2rtc-security.yml"
+  pull_request:
+    paths:
+      - "go2rtc/**"
+      - ".github/workflows/go2rtc-security.yml"
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pinned go2rtc source
+        run: |
+          git clone https://github.com/AlexxIT/go2rtc.git /tmp/go2rtc
+          cd /tmp/go2rtc
+          git checkout b5948cfb25404cc5cb37b166ecaa2dca20b11d4b
+
+      - name: Apply security patches
+        run: |
+          cp go2rtc/scripts/apply-security-patches.py /tmp/go2rtc/apply-security-patches.py
+          cd /tmp/go2rtc
+          python3 apply-security-patches.py
+
+      - name: Verify patched source
+        run: |
+          grep -q 'admin endpoints disabled' /tmp/go2rtc/internal/api/api.go
+          grep -q 'allowPaths = \[\]string{"ffmpeg"}' /tmp/go2rtc/internal/exec/exec.go
+
+      - name: Run Go tests
+        working-directory: /tmp/go2rtc
+        run: go test ./...
+
+      - name: Build amd64 binary
+        working-directory: /tmp/go2rtc
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/go2rtc-bin .
+
+  upstream-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show latest upstream release
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request
+          with urllib.request.urlopen("https://api.github.com/repos/AlexxIT/go2rtc/releases/latest") as r:
+              data = json.load(r)
+          print("Latest upstream release:", data["tag_name"])
+          PY
