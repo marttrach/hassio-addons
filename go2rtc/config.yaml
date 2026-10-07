@@ -1,13 +1,15 @@
-# https://github.com/AlexxIT/builder/blob/master/builder.sh
-name: go2rtc
-description: Default version for regular user. Transcoding for Intel (VAAPI) and Raspberry (V4L2)
-url: https://github.com/AlexxIT/go2rtc
-image: alexxit/go2rtc
-arch: [ amd64, aarch64, i386, armv7 ]
+name: go2rtc Secure
+description: Security-hardened go2rtc 1.9.14 with Xiaomi support, patched admin API and restricted exec defaults
+url: https://github.com/marttrach/hassio-addons
+build_from:
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.22
+  aarch64: ghcr.io/home-assistant/aarch64-base-python:3.13-alpine3.22
+  i386: ghcr.io/home-assistant/i386-base-python:3.13-alpine3.22
+  armv7: ghcr.io/home-assistant/armv7-base-python:3.13-alpine3.22
+arch: [amd64, aarch64, i386, armv7]
 
-# https://developers.home-assistant.io/docs/add-ons/configuration
-version: 1.9.14
-slug: go2rtc
+version: 1.9.14-sec.1
+slug: go2rtc_secure
 init: false
 startup: system
 host_network: true
@@ -16,5 +18,8 @@ video: true
 audio: true
 ingress: true
 ingress_port: 1984
-panel_icon: mdi:camera-wireless
-map: [ "config:rw", "media", "ssl" ]
+panel_icon: mdi:camera-lock
+map:
+  - "config:rw"
+  - "media"
+  - "ssl"
