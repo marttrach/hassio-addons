@@ -36,9 +36,13 @@ jobs:
           cd /tmp/go2rtc
           python3 apply-security-patches.py
 
-      - name: Verify patched source
+      - name: Verify hardened endpoints
         run: |
-          grep -q 'admin endpoints disabled' /tmp/go2rtc/internal/api/api.go
+          ! grep -q 'HandleFunc("api/config"' /tmp/go2rtc/internal/api/api.go
+          ! grep -q 'HandleFunc("api/restart"' /tmp/go2rtc/internal/api/api.go
+          ! grep -q 'HandleFunc("api/exit"' /tmp/go2rtc/internal/api/api.go
+          ! grep -q 'HandleFunc("api/log"' /tmp/go2rtc/internal/api/api.go
+          grep -q 'HandleFunc("api/xiaomi"' /tmp/go2rtc/internal/xiaomi/xiaomi.go
           grep -q 'allowPaths = \[\]string{"ffmpeg"}' /tmp/go2rtc/internal/exec/exec.go
 
       - name: Run Go tests
@@ -52,11 +56,15 @@ jobs:
   upstream-watch:
     runs-on: ubuntu-latest
     steps:
-      - name: Show latest upstream release
+      - name: Check latest upstream release
         run: |
           python3 - <<'PY'
           import json, urllib.request
+          pinned = "v1.9.14"
           with urllib.request.urlopen("https://api.github.com/repos/AlexxIT/go2rtc/releases/latest") as r:
-              data = json.load(r)
-          print("Latest upstream release:", data["tag_name"])
+              latest = json.load(r)["tag_name"]
+          print("Pinned:", pinned)
+          print("Latest:", latest)
+          if latest != pinned:
+              print(f"::warning title=go2rtc upstream update available::{latest} is newer than {pinned}; review and rebase the security patch.")
           PY
