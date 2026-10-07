@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 ARG GO2RTC_REF=b5948cfb25404cc5cb37b166ecaa2dca20b11d4b
 ARG GO_VERSION=1.25
-ARG PYTHON_VERSION=3.13
+ARG BUILD_FROM
 
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
 ARG TARGETOS
@@ -21,7 +21,7 @@ ENV GOOS=${TARGETOS}
 ENV GOARCH=${TARGETARCH}
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/go2rtc .
 
-FROM python:${PYTHON_VERSION}-alpine
+FROM ${BUILD_FROM}
 RUN apk add --no-cache tini ffmpeg ffplay bash curl jq alsa-plugins-pulse font-droid
 
 ARG TARGETARCH
