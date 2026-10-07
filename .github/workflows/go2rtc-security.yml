@@ -55,6 +55,108 @@ jobs:
         working-directory: /tmp/go2rtc
         run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/go2rtc-bin .
 
+  addon-image-integration:
+    runs-on: ubuntu-latest
+    needs: patch-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve Home Assistant amd64 base image
+        run: |
+          BUILD_FROM="$(awk '/^  amd64:/{print $2; exit}' go2rtc/config.yaml)"
+          test -n "$BUILD_FROM"
+          echo "BUILD_FROM=$BUILD_FROM" >> "$GITHUB_ENV"
+          echo "Using BUILD_FROM=$BUILD_FROM"
+
+      - name: Build Home Assistant add-on image
+        env:
+          DOCKER_BUILDKIT: "1"
+        run: |
+          docker build \
+            --pull \
+            --build-arg BUILD_FROM="$BUILD_FROM" \
+            --build-arg TARGETOS=linux \
+            --build-arg TARGETARCH=amd64 \
+            --build-arg GO2RTC_REF=b5948cfb25404cc5cb37b166ecaa2dca20b11d4b \
+            --tag go2rtc-secure:ci \
+            ./go2rtc
+
+      - name: Start patched go2rtc container
+        run: |
+          mkdir -p /tmp/go2rtc-ci-config
+          cat > /tmp/go2rtc-ci-config/go2rtc.yaml <<'EOF'
+          api:
+            listen: ":1984"
+          log:
+            level: info
+          EOF
+
+          docker run -d \
+            --name go2rtc-secure-ci \
+            -p 127.0.0.1:11984:1984 \
+            -v /tmp/go2rtc-ci-config:/config \
+            go2rtc-secure:ci
+
+          echo "go2rtc container started:"
+          docker ps --filter name=go2rtc-secure-ci
+
+      - name: Wait for HTTP API
+        run: |
+          set -e
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:11984/api >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "go2rtc did not become ready"
+          docker logs go2rtc-secure-ci || true
+          exit 1
+
+      - name: Verify dangerous admin endpoints are unavailable
+        run: |
+          set -euo pipefail
+
+          assert_404() {
+            method="$1"
+            path="$2"
+            code="$(curl -sS -o /tmp/http-body -w '%{http_code}' -X "$method" "http://127.0.0.1:11984$path")"
+            if [ "$code" != "404" ]; then
+              echo "Expected $method $path -> 404, got $code"
+              cat /tmp/http-body || true
+              docker logs go2rtc-secure-ci || true
+              exit 1
+            fi
+            echo "PASS: $method $path -> 404"
+          }
+
+          assert_404 GET /api/config
+          assert_404 PATCH /api/config
+          assert_404 POST /api/restart
+          assert_404 POST /api/exit?code=0
+          assert_404 GET /api/log
+
+      - name: Verify Xiaomi API remains available
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /tmp/xiaomi.json -w '%{http_code}' http://127.0.0.1:11984/api/xiaomi)"
+          test "$code" = "200"
+          python3 - <<'PY'
+          import json
+          with open("/tmp/xiaomi.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+          assert isinstance(data, list), data
+          print("PASS: GET /api/xiaomi -> 200 with JSON list")
+          PY
+
+      - name: Show container logs
+        if: always()
+        run: docker logs go2rtc-secure-ci || true
+
+      - name: Stop integration container
+        if: always()
+        run: docker rm -f go2rtc-secure-ci || true
+
   upstream-watch:
     runs-on: ubuntu-latest
     steps:
