@@ -1,0 +1,130 @@
+name: Publish go2rtc Secure
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "go2rtc/config.yaml"
+      - "go2rtc/Dockerfile"
+      - "go2rtc/scripts/**"
+      - ".github/workflows/go2rtc-publish.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ARCHITECTURES: '["amd64","aarch64"]'
+  IMAGE_NAME: go2rtc-secure
+  BUILDER_VERSION: 2026.09.0
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read add-on version
+        id: meta
+        shell: bash
+        run: |
+          version="$(awk '/^version:/{print $2; exit}' go2rtc/config.yaml)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare multi-arch matrix
+        id: matrix
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@2026.09.0
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          image-name: ${{ env.IMAGE_NAME }}
+
+  build:
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build and push ${{ matrix.arch }}
+        uses: home-assistant/builder/actions/build-image@2026.09.0
+        with:
+          arch: ${{ matrix.arch }}
+          context: ./go2rtc
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image: ${{ matrix.image }}
+          image-tags: |
+            ${{ needs.prepare.outputs.version }}
+            latest
+          labels: |
+            io.hass.type=addon
+            io.hass.name=go2rtc Secure
+            io.hass.description=Security-hardened go2rtc with Xiaomi support
+            io.hass.url=https://github.com/marttrach/hassio-addons
+          push: "true"
+          skip-existing: ${{ needs.prepare.outputs.version }}
+          version: ${{ needs.prepare.outputs.version }}
+
+  manifest:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Publish multi-arch manifest
+        uses: home-assistant/builder/actions/publish-multi-arch-manifest@2026.09.0
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ env.IMAGE_NAME }}
+          image-tags: |
+            ${{ needs.prepare.outputs.version }}
+            latest
+          skip-existing: ${{ needs.prepare.outputs.version }}
+
+      - name: Verify published architectures
+        env:
+          IMAGE_REF: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
+        run: |
+          docker buildx imagetools inspect "$IMAGE_REF" --raw > manifest.json
+          jq -e '[.manifests[].platform | select(.os == "linux") | .architecture] | sort == ["amd64","arm64"]' manifest.json
+
+  release:
+    needs: [prepare, manifest]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create tag and GitHub Release if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists; release creation skipped."
+            exit 0
+          fi
+
+          git tag "$VERSION" "${GITHUB_SHA}"
+          git push origin "refs/tags/$VERSION"
+
+          gh release create "$VERSION" \
+            --target "${GITHUB_SHA}" \
+            --title "go2rtc Secure $VERSION" \
+            --notes-file go2rtc/CHANGELOG.md
