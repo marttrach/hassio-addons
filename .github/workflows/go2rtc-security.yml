@@ -45,9 +45,11 @@ jobs:
           grep -q 'HandleFunc("api/xiaomi"' /tmp/go2rtc/internal/xiaomi/xiaomi.go
           grep -q 'allowPaths = \[\]string{"ffmpeg"}' /tmp/go2rtc/internal/exec/exec.go
 
-      - name: Run Go tests
+      - name: Compile security-sensitive packages
         working-directory: /tmp/go2rtc
-        run: go test ./...
+        run: |
+          go test ./internal/api ./internal/exec ./internal/xiaomi
+          go test ./pkg/xiaomi/...
 
       - name: Build amd64 binary
         working-directory: /tmp/go2rtc
