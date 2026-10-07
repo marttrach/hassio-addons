@@ -61,20 +61,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve Home Assistant amd64 base image
-        run: |
-          BUILD_FROM="$(awk '/^  amd64:/{print $2; exit}' go2rtc/config.yaml)"
-          test -n "$BUILD_FROM"
-          echo "BUILD_FROM=$BUILD_FROM" >> "$GITHUB_ENV"
-          echo "Using BUILD_FROM=$BUILD_FROM"
-
       - name: Build Home Assistant add-on image
         env:
           DOCKER_BUILDKIT: "1"
         run: |
           docker build \
             --pull \
-            --build-arg BUILD_FROM="$BUILD_FROM" \
             --build-arg TARGETOS=linux \
             --build-arg TARGETARCH=amd64 \
             --build-arg GO2RTC_REF=b5948cfb25404cc5cb37b166ecaa2dca20b11d4b \
