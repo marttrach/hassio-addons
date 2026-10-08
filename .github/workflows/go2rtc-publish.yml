@@ -95,6 +95,7 @@ jobs:
             ${{ needs.prepare.outputs.version }}
             latest
           skip-existing: ${{ needs.prepare.outputs.version }}
+          cosign: "false"
 
       - name: Verify published architectures
         env:
