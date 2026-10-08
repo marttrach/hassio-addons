@@ -1,22 +1,21 @@
-# AlexxIT Hass.io addons
+# Marttrach Home Assistant Add-ons
 
-- [go2rtc](https://github.com/AlexxIT/go2rtc) - Ultimate camera streaming application
-- [SSH Tunnel](https://github.com/AlexxIT/hassio-addons/tree/master/ssh_tunnel) - external access to Hass via VPS server tunnel
+Security-maintained Home Assistant add-ons based on selected upstream projects.
+
+## go2rtc Secure
+
+Security-hardened go2rtc build with Xiaomi support.
+
+Repository URL for Home Assistant:
+
+`https://github.com/marttrach/hassio-addons`
+
+Current secure release: `1.9.14-sec.1`
 
 ## Install
 
-You must using [Hass.io](https://www.home-assistant.io/hassio/) - supervised [Home Assistant](https://www.home-assistant.io/) version with addon support.
+In Home Assistant, open **Settings → Apps / Add-ons → Store → Repositories** and add:
 
-**Add addon repository**
+`https://github.com/marttrach/hassio-addons`
 
-`https://github.com/AlexxIT/hassio-addons`
-
-![](add_repo.png)
-
-**Install addon**
-
-![](install.png)
-
-**Config addon**
-
-![](config.png)
+Then refresh the store and install **go2rtc Secure**.
